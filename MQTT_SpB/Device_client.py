@@ -90,7 +90,7 @@ def getDdata():
     try:
         val_list = parse(msg, par_list)  # parse response
     except ValueError:
-        print(f"{n} Empty value for {par[0]}")
+        print("Could not parse response from CNC machine")
         raise ConnectionError
 
     # Add device metrics
@@ -176,7 +176,7 @@ def publishDeviceData():
         print("Could not get data from CNC machine")
         tn.close()
         publishDeviceDeath()
-        return
+        sys.exit()
 
 
     # iterate through new metrics values to find if there was a change
@@ -261,19 +261,20 @@ except:
     print("Cannot connect to CNC machine")
     sys.exit()
 
+ammeter = None
 if powerMeter:
+    powerMeter = False
     for port in comports():
         if "CP210" in port[1]:
             try:
                 ammeter = PowerMeter(port[0])
                 print('Connected to USB device "%s..."' % port[1][:50])
-                break
+                powerMeter = True
             except:
-                powerMeter = False
                 print("Check power meter!!!")
-        else:
-            print("Could not connect to USB port")
-            ammeter = None
+            break
+    if not powerMeter:
+        print("Could not find power meter on any USB port")
 
 time.sleep(1)
 newdeath = False
@@ -308,6 +309,9 @@ for i, par in enumerate(parameters):
         data_type = MetricDataType.Float
     elif par[-1] == 'int':
         data_type = MetricDataType.Int32
+    else:
+        print(f"Unknown data type '{par[-1]}' for parameter '{name}', skipping")
+        continue
     par_list.append((name, data_type, code))
 par_list = tuple(par_list)
 
