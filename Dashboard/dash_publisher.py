@@ -1,57 +1,57 @@
 import json
+import os
 import psycopg2 as pg
 import paho.mqtt.client as mqtt
 import pandas as pd
 import time
 from datetime import datetime
 
-def on_connect(client, userdata, flags, rc):
 
+def on_connect(client, userdata, flags, rc):
     if rc == 0:
         client.connected_flag = True
         client.publish('FWH2200_PG_DB/status', 'Publisher: 1', retain=True)
     else:
         client.bad_connection_flag = True
 
-with open("dash_pub_config.txt") as config:
-    mqttBroker = config.readline().split(" = ")[1].replace("\n", "")
-    db = config.readline().split(" = ")[1].replace("\n", "")
-    user = config.readline().split(" = ")[1].replace("\n", "")
-    password = config.readline().split(" = ")[1].replace("\n", "")
 
-conn = pg.connect(f"dbname={db} user={user} password={password}")
+_cfg = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'historian.config')
+with open(_cfg) as config:
+    mqttBroker = config.readline().split(" = ")[1].strip()
+    hostname   = config.readline().split(" = ")[1].strip()
+    _           = config.readline()  # group ID (unused)
+    db         = config.readline().split(" = ")[1].strip()
+    user       = config.readline().split(" = ")[1].strip()
+    password   = config.readline().split(" = ")[1].strip()
 
+conn = pg.connect(f"dbname={db} user={user} password={password} host={hostname}")
 
 try:
     cur = conn.cursor()
-    print("Subscriber connection established")
+    print("Publisher DB connection established")
 except (Exception, pg.DatabaseError) as error:
     print(error)
 
-
-port=1883
-client = mqtt.Client("FWH2200_PG_DB")
-client.will_set("FWH2200_PG_DB/status", "Publisher: 0",retain=True)
+port = 1883
+client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1, "FWH2200_PG_DB")
+client.will_set("FWH2200_PG_DB/status", "Publisher: 0", retain=True)
 client.on_connect = on_connect
 client.loop_start()
 client.connect(mqttBroker, port)
 
-topic_list = ['VF-2_1','VF-2_2' ]
+topic_list = ['VF-2_1', 'VF-2_2']
 
 while True:
-    dataObj ={}
+    dataObj = {}
     try:
-        for n, topic in enumerate(topic_list):
-            CMD = f'SELECT * FROM public."{topic}" order by "Year, month, day" desc, "Power-on Time (total)" desc limit 1'
+        for topic in topic_list:
+            CMD = f'SELECT * FROM "AML"."{topic}" ORDER BY "timestamp" DESC LIMIT 1'
             df = pd.read_sql_query(CMD, conn)
             dataObj[topic] = df.to_dict(orient='records')
 
         message = json.dumps(dataObj)
-
-        client.publish(f'FWH2200_PG_DB/output',message, qos=1)
-        now = datetime.now()
-        current_time = now.strftime("%H:%M:%S")
-        print(f"Message is sent at {current_time}")
+        client.publish('FWH2200_PG_DB/output', message, qos=1)
+        print(f"Message sent at {datetime.now().strftime('%H:%M:%S')}")
         time.sleep(1)
-    except:
-        print('Something went wrong')
+    except Exception as e:
+        print(f'Publisher error: {e}')

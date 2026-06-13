@@ -1,7 +1,7 @@
 import sys
 import os
 
-sys.path.insert(0, "/home/pi/Haas-Data-Collection/spb")  # uncomment for Raspberry Pi
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'spb'))
 
 import sparkplug_b as sparkplug
 from sparkplug_b import *
@@ -242,8 +242,8 @@ def addPowerData(payload):
     
     
 # read data specific to setup and machines
-# with open(r"C:\Users\pkoprov\PycharmProjects\Haas-Data-Collection\Node.config") as config: # uncomment for Windows
-with open("/home/pi/Haas-Data-Collection/Node.config") as config:  # uncomment for Raspberry Pi
+_BASE = os.path.dirname(os.path.abspath(__file__))
+with open(os.path.join(_BASE, '..', 'Node.config')) as config:
     mqttBroker = config.readline().split(" = ")[1].replace("\n", "")
     myGroupId = config.readline().split(" = ")[1].replace("\n", "")
     myNodeName = config.readline().split(" = ")[1].replace("\n", "")
@@ -291,8 +291,7 @@ client.loop_start()
 time.sleep(0.1)
 
 # read required parameters from csv file
-# with open(r"C:\Users\pkoprov\PycharmProjects\Haas-Data-Collection\DB Table columns.csv") as text:  # uncomment for Windows
-with open("/home/pi/Haas-Data-Collection/DB Table columns.csv") as text:  # uncomment for Raspberry Pi
+with open(os.path.join(_BASE, '..', 'DB Table columns.csv')) as text:
     parameters = text.read().split('\n')[:-1]
 
 # create parameter tuples

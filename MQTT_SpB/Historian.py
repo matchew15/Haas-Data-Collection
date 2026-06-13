@@ -1,15 +1,16 @@
+import os
 import sys
 
 import paho.mqtt.client as mqtt
 import pandas as pd
 import psycopg2 as pg
 
-sys.path.insert(0, './spb')  # uncomment for Windows
+_BASE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(_BASE, '..', 'spb'))
 
 from sparkplug_b import *
 
-with open("./historian.config",
-          'r') as config:  # uncomment for Windows
+with open(os.path.join(_BASE, '..', 'historian.config'), 'r') as config:
     mqttBroker = config.readline().split(" = ")[1].replace("\n", "")
     hostname = config.readline().split(" = ")[1].replace("\n", "")
     myGroupId = config.readline().split(" = ")[1].replace("\n", "")
@@ -145,7 +146,7 @@ def append_table(table, message, dBirth=False, dDeath=False):
 
 # setup MQTT client, callbacks and connection
 qos = 2
-client = mqtt.Client("Historian", False)
+client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1, "Historian", clean_session=False)
 client.on_connect = on_connect
 client.on_message = on_message
 client.connect(mqttBroker, 1883, 60)

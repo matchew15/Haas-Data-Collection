@@ -1,105 +1,102 @@
+import os
 from flask import Flask, jsonify, request
-from flask_restful import Api,Resource
+from flask_restful import Api, Resource
 import psycopg2 as pg
 import pandas as pd
 
 
-with open("../Sub_config.txt") as config:
-    mqttBroker = config.readline().split(" = ")[1].replace("\n", "")
-    db = config.readline().split(" = ")[1].replace("\n", "")
-    user = config.readline().split(" = ")[1].replace("\n", "")
-    password = config.readline().split(" = ")[1].replace("\n", "")
-    machines = config.readline().split(" = ")[1].replace("\n", "").split(', ')
-
+_cfg = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'historian.config')
+with open(_cfg) as config:
+    _            = config.readline()   # MQTT Broker IP (unused by REST)
+    hostname     = config.readline().split(" = ")[1].strip()
+    __           = config.readline()   # group ID (unused)
+    db           = config.readline().split(" = ")[1].strip()
+    user         = config.readline().split(" = ")[1].strip()
+    password     = config.readline().split(" = ")[1].strip()
 
 try:
-    conn = pg.connect(f"dbname={db} user={user} password={password}")
+    conn = pg.connect(f"dbname={db} user={user} password={password} host={hostname}")
     cur = conn.cursor()
-    print("Subscriber connection established")
+    print("REST server DB connection established")
 except (Exception, pg.DatabaseError) as error:
     print(error)
 
 app = Flask(__name__)
 api = Api(app)
 
+_SCHEMA = '"AML"'
+
 
 class Welcome(Resource):
     def get(self):
-        return "Welcome to the REST server: Type '.../all' for more commands"
+        return "Haas CNC REST API — GET /all for available endpoints"
+
 
 class All(Resource):
     def get(self):
-        uriObj = {}
+        return {
+            "Machine list":       "/machinelist",
+            "Last 10 records":    "/last10?codename=<table>",
+            "XYZ coordinates":    "/XYZ?codename=<table>",
+        }
 
-        uriObj["list of resources"] = ".../all"
-        uriObj["Machine List"] = ".../machinelist"
-        uriObj["Last 200 records"] = ".../last200"
-        uriObj["Last record"] = ".../last"
-        uriObj["Machine coordinates"] = ".../XYZ?codename=<name of table>"
-
-        return uriObj
 
 class Machines(Resource):
     def get(self):
         try:
-            data={}
-            qCmd = 'SELECT * FROM public."CNC"'
-            cur.execute(qCmd)
-            records = cur.fetchall()
-
-            for i, rec in enumerate(records):
-                data[i]={}
-                for j, desc in enumerate(cur.description):
-                    data[i][desc.name]=rec[j]
-
-            return jsonify('machineList', data)
-
+            cur.execute(f'SELECT * FROM {_SCHEMA}."CNC"')
+            rows = cur.fetchall()
+            data = {
+                i: {desc.name: row[j] for j, desc in enumerate(cur.description)}
+                for i, row in enumerate(rows)
+            }
+            return data
         except (Exception, pg.DatabaseError) as error:
             print(error)
+            return {"error": str(error)}, 500
 
 
 class MachineDataLast(Resource):
-
     def get(self):
         codename = request.args.get("codename")
+        if not codename:
+            return {"error": "codename parameter required"}, 400
         try:
-            qCmd = f'SELECT * FROM public."{codename}" ORDER BY "Year, month, day" DESC, "Power-on Time (total)" DESC LIMIT 10'
-            df = pd.read_sql_query(qCmd, conn)
-
-            # df['temperature'] = df['temperature'].apply(lambda x: x[0])
-            # df['pressure'] = df['pressure'].apply(lambda x: x[0])
-            # df['humidity'] = df['humidity'].apply(lambda x: x[0])
-
+            df = pd.read_sql_query(
+                f'SELECT * FROM {_SCHEMA}."{codename}" ORDER BY "timestamp" DESC LIMIT 10',
+                conn,
+            )
             return df.to_json()
-
         except (Exception, pg.DatabaseError) as error:
             print(error)
-            return jsonify({'msg': "Something went wrong..wrong entry"})
+            return {"error": "Query failed"}, 500
 
 
 class Coordinates(Resource):
-
     def get(self):
         codename = request.args.get("codename")
+        if not codename:
+            return {"error": "codename parameter required"}, 400
         coord = 'Present machine coordinate position '
         try:
-            qCmd = f'SELECT "{coord+"X"}","{coord+"Y"}","{coord+"Z"}" FROM public."{codename}" ' \
-              f'order by "Year, month, day" desc, "Power-on Time (total)" desc limit 1'
-            cur.execute(qCmd)
-            row = cur.fetchall()
-            xyz={"X":None,"Y":None,"Z":None}
-            for i,j in enumerate(xyz.keys()):
-                xyz[j] = float(row[0][i])
-            return xyz
-
+            cur.execute(
+                f'SELECT "{coord}X", "{coord}Y", "{coord}Z" '
+                f'FROM {_SCHEMA}."{codename}" ORDER BY "timestamp" DESC LIMIT 1'
+            )
+            row = cur.fetchone()
+            if row is None:
+                return {"error": "No data found"}, 404
+            return {"X": float(row[0]), "Y": float(row[1]), "Z": float(row[2])}
         except (Exception, pg.DatabaseError) as error:
-            return error, jsonify({'msg': "Something went wrong..wrong entry"})
+            print(error)
+            return {"error": "Query failed"}, 500
+
 
 api.add_resource(Welcome, '/')
-api.add_resource(All,'/all')
+api.add_resource(All, '/all')
 api.add_resource(Machines, '/machinelist')
-api.add_resource(MachineDataLast,'/last10')
-api.add_resource(Coordinates,'/XYZ')
+api.add_resource(MachineDataLast, '/last10')
+api.add_resource(Coordinates, '/XYZ')
 
 if __name__ == '__main__':
-    app.run(host= '10.76.152.200',port='3000', debug=True)
+    app.run(host='0.0.0.0', port=3000, debug=False)

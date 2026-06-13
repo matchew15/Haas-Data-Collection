@@ -5,8 +5,7 @@ import time
 
 import paho.mqtt.client as mqtt
 
-# sys.path.insert(0, r"C:\Users\pkoprov\PycharmProjects\Haas-Data-Collection\spb") # uncomment for Windows
-sys.path.insert(0, "/home/pi/Haas-Data-Collection/spb")  # uncomment for Raspberry Pi
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'spb'))
 
 import sparkplug_b as sparkplug
 from sparkplug_b import *
@@ -181,8 +180,7 @@ def getNdata():
 
 
 # read data specific to setup and machines
-# with open(r"C:\Users\pkoprov\PycharmProjects\Haas-Data-Collection\Node.config") as config: # uncomment for Windows
-with open("/home/pi/Haas-Data-Collection/Node.config") as config:  # uncomment for Raspberry Pi
+with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'Node.config')) as config:
     mqttBroker = config.readline().split(" = ")[1].replace("\n", "")
     myGroupId = config.readline().split(" = ")[1].replace("\n", "")
     myNodeName = config.readline().split(" = ")[1].replace("\n", "")
@@ -199,7 +197,7 @@ deathByteArray = deathPayload.SerializeToString()
 # Start of main program - Set up the MQTT client connection
 qos = 2
 ret = True
-client = mqtt.Client(myNodeName, clean_session=True)
+client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1, myNodeName, clean_session=True)
 client.on_connect = on_connect
 client.on_message = on_message
 client.username_pw_set(myUsername, myPassword)
