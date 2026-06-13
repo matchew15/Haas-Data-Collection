@@ -9,7 +9,7 @@ import plotly.graph_objects as go
 # ---------------------------------------------------------------------------
 # Config — reuse historian.config (hostname, dbName, user, password)
 # ---------------------------------------------------------------------------
-_cfg = os.path.join(os.path.dirname(__file__), '..', 'historian.config')
+_cfg = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'historian.config')
 with open(_cfg) as f:
     _lines = f.readlines()
 

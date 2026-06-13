@@ -38,7 +38,7 @@
 ?Q600 1819,Max recorded vibrations of tool 19,float
 ?Q600 1820,Max recorded vibrations of tool 20,float
 ?Q600 3020,Power on timer (read only),int
-?Q600 3021,Cycle start timer, int
+?Q600 3021,Cycle start timer,int
 ?Q600 3022,Feed timer,int
 ?Q600 3023,Present part timer (read only),int
 ?Q600 3024,Last complete part timer (read only),int

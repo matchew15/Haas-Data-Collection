@@ -110,7 +110,7 @@ def append_table(table, message, dBirth=False, dDeath=False):
         val_dic = {}
 
         for metric in message.metrics:
-            if metric.name in columns:
+            if metric.name in dbData.index:
                 if 'Three-in-one' in metric.name and dBirth:
                     val_dic[metric.name] = 'DBIRTH'
                 elif metric.datatype == MetricDataType.Float:

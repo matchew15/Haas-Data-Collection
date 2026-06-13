@@ -111,7 +111,7 @@ def getDdata():
     try:
         tn.write(mac_list)
     except:
-        print(f"Telnet connection failed! Could not write {mac} to CNC machine")
+        print(f"Telnet connection failed! Could not write mac_list to CNC machine")
         raise ConnectionError
 
     tn.read_until(b'>>!\r\n' * len(mac_list.split(b"\n")[:-1]), timeout=1)  # flush the buffer after macros
@@ -135,7 +135,7 @@ def parse(telnetdata, par_list):
                 val = int(float(msg[1]))
             else:
                 val = msg[1]
-        elif ('program' and "parts") in ''.join(msg).lower():
+        elif 'program' in ''.join(msg).lower() and 'parts' in ''.join(msg).lower():
             val = ', '.join(msg)
         elif 'busy' in ''.join(msg).lower():
             val = "BUSY"
@@ -193,7 +193,7 @@ def publishDeviceData():
                 stale = False
                 break
             if metric.name == "Coolant level" and abs(
-                    metric.float_value - previous_metric.float_value) < 2:  # if coolant level is stable
+                    metric.int_value - previous_metric.int_value) < 2:  # if coolant level is stable
                 stale = True
                 continue
             elif (
@@ -292,7 +292,7 @@ time.sleep(0.1)
 
 # read required parameters from csv file
 with open(os.path.join(_BASE, '..', 'DB Table columns.csv')) as text:
-    parameters = text.read().split('\n')[:-1]
+    parameters = [line for line in text.read().splitlines() if line.strip()]
 
 # create parameter tuples
 par_list = []
@@ -300,16 +300,17 @@ for i, par in enumerate(parameters):
     par = par.split(',')
     code = par[0]
     name = ''.join(par[1:-1]).replace(';', ',')
-    if par[-1] == 'boolean':
+    type_str = par[-1].strip()
+    if type_str == 'boolean':
         data_type = MetricDataType.Boolean
-    elif par[-1] == 'str':
+    elif type_str == 'str':
         data_type = MetricDataType.String
-    elif par[-1] == 'float':
+    elif type_str == 'float':
         data_type = MetricDataType.Float
-    elif par[-1] == 'int':
+    elif type_str == 'int':
         data_type = MetricDataType.Int32
     else:
-        print(f"Unknown data type '{par[-1]}' for parameter '{name}', skipping")
+        print(f"Unknown data type '{type_str}' for parameter '{name}', skipping")
         continue
     par_list.append((name, data_type, code))
 par_list = tuple(par_list)

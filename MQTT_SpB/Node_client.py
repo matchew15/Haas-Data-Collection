@@ -14,17 +14,18 @@ from sparkplug_b import *
 ######################################################################
 # function to ping the NGC
 ######################################################################
+_DEVICE_SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Device_client.py')
+
+
 def device_ping(device_ip, timeout=1):
     global device_online
     ping = True
     while True:
         if not device_online:
-            if os.system("ping -c 1 " + device_ip + ' | grep "1 received"') == 0:  # uncomment for Raspberry Pi
+            if os.system("ping -c 1 " + device_ip + ' | grep "1 received"') == 0:
                 ping = True
-                #         if os.system("ping -c 1 " + device_ip + ' | find "Received = 1"') == 0: # uncomment for Windows
                 print("Starting of the Device program")
-                os.system("python3 ./Device_client.py")  # uncomment for Raspberry Pi
-                # os.system("python Device_client.py") # uncomment for Windows
+                os.system(f"python3 '{_DEVICE_SCRIPT}'")
             elif ping:
                 print("NGC is not reachable")
                 ping = False
@@ -83,7 +84,7 @@ def on_message(client, userdata, msg):
                 if metric.name == "Device Status":
                     if metric.string_value == "start":
                         print("Starting of the Device program")
-                        os.system("python3 ./Device_client.py")  # uncomment for Raspberry Pi
+                        os.system(f"python3 '{_DEVICE_SCRIPT}'")
 
         elif tokens[2] in ("DBIRTH", "DDEATH") and tokens[
             4] == myDeviceName:  # if the message is a device birth or death
