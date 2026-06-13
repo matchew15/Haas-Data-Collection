@@ -44,9 +44,9 @@ def on_message(client, userdata, msg):
             elif metric.name == "Device Control/Reconnect":
                 print("Node is going to reboot")
                 global tn
-                tn = tn.close()
+                tn.close()
                 try:
-                    tn = open(CNC_host, 5051, 3)
+                    tn = telnetlib.Telnet(CNC_host, 5051, 3)
                 except:
                     print("Device reconnect failed")
                     sys.exit()
@@ -180,7 +180,8 @@ def publishDeviceData():
 
 
     # iterate through new metrics values to find if there was a change
-    for i, metric in enumerate(payload.metrics):  
+    stale = True
+    for i, metric in enumerate(payload.metrics):
         if metric.name in ['Year, month, day', 'Hour, minute, second', 'Power-on Time (total)',
                            'Power on timer (read only)']:  # ignore these metrics
             continue
