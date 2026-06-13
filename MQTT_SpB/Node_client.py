@@ -5,8 +5,7 @@ import time
 
 import paho.mqtt.client as mqtt
 
-# sys.path.insert(0, r"C:\Users\pkoprov\PycharmProjects\Haas-Data-Collection\spb") # uncomment for Windows
-sys.path.insert(0, "/home/pi/Haas-Data-Collection/spb")  # uncomment for Raspberry Pi
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'spb'))
 
 import sparkplug_b as sparkplug
 from sparkplug_b import *
@@ -15,17 +14,18 @@ from sparkplug_b import *
 ######################################################################
 # function to ping the NGC
 ######################################################################
+_DEVICE_SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Device_client.py')
+
+
 def device_ping(device_ip, timeout=1):
     global device_online
     ping = True
     while True:
         if not device_online:
-            if os.system("ping -c 1 " + device_ip + ' | grep "1 received"') == 0:  # uncomment for Raspberry Pi
+            if os.system("ping -c 1 " + device_ip + ' | grep "1 received"') == 0:
                 ping = True
-                #         if os.system("ping -c 1 " + device_ip + ' | find "Received = 1"') == 0: # uncomment for Windows
                 print("Starting of the Device program")
-                os.system("python3 ./Device_client.py")  # uncomment for Raspberry Pi
-                # os.system("python Device_client.py") # uncomment for Windows
+                os.system(f"python3 '{_DEVICE_SCRIPT}'")
             elif ping:
                 print("NGC is not reachable")
                 ping = False
@@ -84,7 +84,7 @@ def on_message(client, userdata, msg):
                 if metric.name == "Device Status":
                     if metric.string_value == "start":
                         print("Starting of the Device program")
-                        os.system("python3 ./Device_client.py")  # uncomment for Raspberry Pi
+                        os.system(f"python3 '{_DEVICE_SCRIPT}'")
 
         elif tokens[2] in ("DBIRTH", "DDEATH") and tokens[
             4] == myDeviceName:  # if the message is a device birth or death
@@ -181,8 +181,7 @@ def getNdata():
 
 
 # read data specific to setup and machines
-# with open(r"C:\Users\pkoprov\PycharmProjects\Haas-Data-Collection\Node.config") as config: # uncomment for Windows
-with open("/home/pi/Haas-Data-Collection/Node.config") as config:  # uncomment for Raspberry Pi
+with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'Node.config')) as config:
     mqttBroker = config.readline().split(" = ")[1].replace("\n", "")
     myGroupId = config.readline().split(" = ")[1].replace("\n", "")
     myNodeName = config.readline().split(" = ")[1].replace("\n", "")
@@ -199,7 +198,7 @@ deathByteArray = deathPayload.SerializeToString()
 # Start of main program - Set up the MQTT client connection
 qos = 2
 ret = True
-client = mqtt.Client(myNodeName, clean_session=True)
+client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1, myNodeName, clean_session=True)
 client.on_connect = on_connect
 client.on_message = on_message
 client.username_pw_set(myUsername, myPassword)

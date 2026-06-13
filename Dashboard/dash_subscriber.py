@@ -1,39 +1,34 @@
-import paho.mqtt.client as mqtt
+import os
 import json
+import paho.mqtt.client as mqtt
 
 
-with open("dash_pub_config.txt") as config:
-    mqttBroker = config.readline().split(" = ")[1].replace("\n", "")
+_cfg = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'historian.config')
+with open(_cfg) as config:
+    mqttBroker = config.readline().split(" = ")[1].strip()
 
 
 def on_connect(client, userdata, flags, rc):
-    if rc==0:
-        print("connected OK Returned code=",rc)
+    if rc == 0:
+        print("Connected, rc =", rc)
     else:
-        print("Bad connection Returned code=",rc)
-
-
-def on_log(client, userdata, level, buffer):
-    print("Log: ", buffer)
+        print("Bad connection, rc =", rc)
 
 
 def on_message(client, userdata, message):
     msg = message.payload.decode("utf-8")
-    print("Received message in topic", message.topic)
-    # global dataObj
-    # dataObj = json.loads(msg)
-    print(msg)
+    print("Received on", message.topic)
+    try:
+        print(json.dumps(json.loads(msg), indent=2))
+    except Exception:
+        print(msg)
 
-port=1883
-client = mqtt.Client("pkoprov")
+
+port = 1883
+client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1, "dash_subscriber")
 client.connect(mqttBroker, port)
 client.on_connect = on_connect
-# client.on_log = on_log
 client.on_message = on_message
 
 client.subscribe('FWH2200_PG_DB/#')
-# client.loop_forever()
-client.loop_start()
-while True:
-    pass
-# client.loop_stop()
+client.loop_forever()

@@ -1,7 +1,7 @@
 import sys
 import os
 
-sys.path.insert(0, "/home/pi/Haas-Data-Collection/spb")  # uncomment for Raspberry Pi
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'spb'))
 
 import sparkplug_b as sparkplug
 from sparkplug_b import *
@@ -90,7 +90,7 @@ def getDdata():
     try:
         val_list = parse(msg, par_list)  # parse response
     except ValueError:
-        print(f"{n} Empty value for {par[0]}")
+        print("Could not parse response from CNC machine")
         raise ConnectionError
 
     # Add device metrics
@@ -111,7 +111,7 @@ def getDdata():
     try:
         tn.write(mac_list)
     except:
-        print(f"Telnet connection failed! Could not write {mac} to CNC machine")
+        print(f"Telnet connection failed! Could not write mac_list to CNC machine")
         raise ConnectionError
 
     tn.read_until(b'>>!\r\n' * len(mac_list.split(b"\n")[:-1]), timeout=1)  # flush the buffer after macros
@@ -135,7 +135,7 @@ def parse(telnetdata, par_list):
                 val = int(float(msg[1]))
             else:
                 val = msg[1]
-        elif ('program' and "parts") in ''.join(msg).lower():
+        elif 'program' in ''.join(msg).lower() and 'parts' in ''.join(msg).lower():
             val = ', '.join(msg)
         elif 'busy' in ''.join(msg).lower():
             val = "BUSY"
@@ -176,7 +176,7 @@ def publishDeviceData():
         print("Could not get data from CNC machine")
         tn.close()
         publishDeviceDeath()
-        return
+        sys.exit()
 
 
     # iterate through new metrics values to find if there was a change
@@ -193,7 +193,7 @@ def publishDeviceData():
                 stale = False
                 break
             if metric.name == "Coolant level" and abs(
-                    metric.float_value - previous_metric.float_value) < 2:  # if coolant level is stable
+                    metric.int_value - previous_metric.int_value) < 2:  # if coolant level is stable
                 stale = True
                 continue
             elif (
@@ -242,8 +242,8 @@ def addPowerData(payload):
     
     
 # read data specific to setup and machines
-# with open(r"C:\Users\pkoprov\PycharmProjects\Haas-Data-Collection\Node.config") as config: # uncomment for Windows
-with open("/home/pi/Haas-Data-Collection/Node.config") as config:  # uncomment for Raspberry Pi
+_BASE = os.path.dirname(os.path.abspath(__file__))
+with open(os.path.join(_BASE, '..', 'Node.config')) as config:
     mqttBroker = config.readline().split(" = ")[1].replace("\n", "")
     myGroupId = config.readline().split(" = ")[1].replace("\n", "")
     myNodeName = config.readline().split(" = ")[1].replace("\n", "")
@@ -261,19 +261,20 @@ except:
     print("Cannot connect to CNC machine")
     sys.exit()
 
+ammeter = None
 if powerMeter:
+    powerMeter = False
     for port in comports():
         if "CP210" in port[1]:
             try:
                 ammeter = PowerMeter(port[0])
                 print('Connected to USB device "%s..."' % port[1][:50])
-                break
+                powerMeter = True
             except:
-                powerMeter = False
                 print("Check power meter!!!")
-        else:
-            print("Could not connect to USB port")
-            ammeter = None
+            break
+    if not powerMeter:
+        print("Could not find power meter on any USB port")
 
 time.sleep(1)
 newdeath = False
@@ -290,9 +291,8 @@ client.loop_start()
 time.sleep(0.1)
 
 # read required parameters from csv file
-# with open(r"C:\Users\pkoprov\PycharmProjects\Haas-Data-Collection\DB Table columns.csv") as text:  # uncomment for Windows
-with open("/home/pi/Haas-Data-Collection/DB Table columns.csv") as text:  # uncomment for Raspberry Pi
-    parameters = text.read().split('\n')[:-1]
+with open(os.path.join(_BASE, '..', 'DB Table columns.csv')) as text:
+    parameters = [line for line in text.read().splitlines() if line.strip()]
 
 # create parameter tuples
 par_list = []
@@ -300,14 +300,18 @@ for i, par in enumerate(parameters):
     par = par.split(',')
     code = par[0]
     name = ''.join(par[1:-1]).replace(';', ',')
-    if par[-1] == 'boolean':
+    type_str = par[-1].strip()
+    if type_str == 'boolean':
         data_type = MetricDataType.Boolean
-    elif par[-1] == 'str':
+    elif type_str == 'str':
         data_type = MetricDataType.String
-    elif par[-1] == 'float':
+    elif type_str == 'float':
         data_type = MetricDataType.Float
-    elif par[-1] == 'int':
+    elif type_str == 'int':
         data_type = MetricDataType.Int32
+    else:
+        print(f"Unknown data type '{type_str}' for parameter '{name}', skipping")
+        continue
     par_list.append((name, data_type, code))
 par_list = tuple(par_list)
 
