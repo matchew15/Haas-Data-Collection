@@ -3,3 +3,5 @@ pandas
 psycopg2
 paho-mqtt
 protobuf==3.20
+dash
+plotly
