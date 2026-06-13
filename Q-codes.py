@@ -15,12 +15,12 @@ for n, i in enumerate(all_macros["NGC Variable"]):
         i2 = int(i[1])
         for m, j in enumerate(range(i1,i2+1)):
             code = pd.DataFrame([[f"?Q600 {j}", f"{all_macros['Usage'][n]} {m+1} (Var {j})"]], columns=columns)
-            codes = codes.append(code, ignore_index=True)
+            codes = pd.concat([codes, code], ignore_index=True)
 
     else:
         i = int(i[0])
         code = pd.DataFrame([[f"?Q600 {i}", all_macros["Usage"][n]]], columns=columns)
-        codes = codes.append(code, ignore_index=True)
+        codes = pd.concat([codes, code], ignore_index=True)
     print(codes.tail())
 
 codes.to_excel("Q-codes.xlsx", index=False, sheet_name= "Macros")
